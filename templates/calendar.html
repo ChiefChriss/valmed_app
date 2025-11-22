@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h3 mb-0">
+        <i class="bi bi-calendar3 me-2"></i>Task Calendar
+    </h2>
+    <div>
+        <a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-kanban me-2"></i> Board View
+        </a>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTaskModal">
+            <i class="bi bi-plus-lg me-2"></i> New Task
+        </button>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        events: '{{ url_for("calendar_events") }}',
+        eventClick: function(info) {
+            info.jsEvent.preventDefault();
+            if (info.event.url) {
+                window.location.href = info.event.url;
+            }
+        },
+        eventDidMount: function(info) {
+            // Add tooltip
+            info.el.title = info.event.extendedProps.status + ' - ' + info.event.extendedProps.assignee;
+        },
+        height: 'auto',
+        themeSystem: 'bootstrap5'
+    });
+    
+    calendar.render();
+    
+    // Update calendar theme based on dark mode
+    function updateCalendarTheme() {
+        const isDark = document.body.classList.contains('dark-mode');
+        if (isDark) {
+            calendarEl.classList.add('fc-dark');
+        } else {
+            calendarEl.classList.remove('fc-dark');
+        }
+    }
+    
+    updateCalendarTheme();
+    
+    // Listen for theme changes
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', function() {
+            setTimeout(updateCalendarTheme, 100);
+        });
+    }
+});
+</script>
+
+<style>
+/* FullCalendar dark mode styling */
+body.dark-mode .fc {
+    background-color: transparent;
+    color: #e6e6e6;
+}
+
+body.dark-mode .fc-theme-standard td,
+body.dark-mode .fc-theme-standard th {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .fc-col-header-cell {
+    background-color: rgba(30, 30, 32, 0.60);
+    color: #e6e6e6;
+}
+
+body.dark-mode .fc-daygrid-day {
+    background-color: rgba(22, 22, 24, 0.85);
+}
+
+body.dark-mode .fc-daygrid-day:hover {
+    background-color: rgba(40, 40, 44, 0.85);
+}
+
+body.dark-mode .fc-day-today {
+    background-color: rgba(30, 126, 255, 0.15) !important;
+}
+
+body.dark-mode .fc-button {
+    background-color: #1e7eff !important;
+    border-color: #1e7eff !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .fc-button:hover {
+    background-color: #0d6efd !important;
+}
+
+body.dark-mode .fc-button-active {
+    background-color: #0d6efd !important;
+}
+
+body.dark-mode .fc-toolbar-title {
+    color: #ffffff !important;
+}
+
+body.dark-mode .fc-daygrid-day-number {
+    color: #e6e6e6;
+}
+
+body.dark-mode .fc-event {
+    border: none !important;
+}
+</style>
+
+{% endblock %}
+

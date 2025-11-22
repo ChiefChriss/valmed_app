@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5 col-lg-4">
+    <div class="card login-card shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="text-center mb-4 fw-bold">Welcome Back</h3>
+        <p class="text-center text-muted mb-4">Sign in to your account</p>
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                <input name="username" class="form-control" placeholder="Enter username" required>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Password</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-lock"></i></span>
+                <input name="password" type="password" class="form-control" placeholder="Enter password" required>
+            </div>
+          </div>
+          <button class="btn btn-primary w-100 py-2">Login</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

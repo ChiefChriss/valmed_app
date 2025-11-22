@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="h3 mb-0">Task Board</h2>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTaskModal">
+    <i class="bi bi-plus-lg me-2"></i> New Task
+  </button>
+</div>
+
+<!-- ========================
+     KANBAN GRID 
+========================= -->
+<div class="row flex-nowrap overflow-auto pb-4" style="min-height: 80vh;">
+
+  {% for status in statuses %}
+  <div class="col-md-4 col-lg-3" style="min-width: 300px;">
+    <div class="card h-100 shadow-sm bg-light border-0">
+      <div class="card-header bg-transparent border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0 text-uppercase text-muted fw-bold small tracking-wide">{{ status.label }}</h6>
+        <span class="badge bg-secondary text-white border rounded-pill">
+          {% set count = namespace(value=0) %}
+          {% for t in tasks if t.status_id == status.id %}{% set count.value = count.value + 1 %}{% endfor %}
+          {{ count.value }}
+        </span>
+      </div>
+
+      <div class="card-body overflow-auto px-2 kanban-drop-zone" data-status-id="{{ status.id }}"
+        style="max-height: calc(100vh - 250px); min-height: 200px;">
+        {% for t in tasks %}
+        {% if t.status_id == status.id %}
+        <div class="card mb-3 shadow-sm border-0 task-card draggable-task" draggable="true" data-task-id="{{ t.id }}"
+          data-current-status="{{ status.id }}" style="cursor: move;" 
+          data-task-url="{{ url_for('view_task', task_id=t.id) }}">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between mb-2">
+              <h6 class="card-title mb-0 fw-bold text-truncate" title="{{ t.title }}">
+                {{ t.title }}
+                {% if t.comments|length > 0 %}
+                  <span class="badge rounded-pill bg-light text-dark border ms-2" style="font-size: 0.7rem;">
+                    <i class="bi bi-chat-left-text"></i> {{ t.comments|length }}
+                  </span>
+                {% endif %}
+              </h6>
+              {% if t.status and t.status.is_complete %}
+              <i class="bi bi-check-circle-fill text-success"></i>
+              {% endif %}
+            </div>
+
+            <p class="card-text text-muted small mb-3 text-truncate-3" style="min-height: 1.5em;">
+              {{ t.description or 'No description' }}
+            </p>
+
+            <div class="d-flex flex-wrap gap-1 mb-3">
+              {% if t.assignee %}
+              <span class="badge rounded-pill bg-info text-white" title="Assignee">
+                <i class="bi bi-person-fill me-1"></i> {{ t.assignee.username }}
+              </span>
+              {% endif %}
+
+              {% if t.assigned_group %}
+              <span class="badge rounded-pill bg-warning text-dark" title="Group">
+                <i class="bi bi-people-fill me-1"></i> {{ t.assigned_group.name }}
+              </span>
+              {% endif %}
+            </div>
+
+            <div class="d-flex justify-content-between align-items-end border-top pt-2 mt-2">
+              <small class="text-muted" style="font-size: 0.7rem;">
+                {{ t.created_at.strftime('%b %d') if t.created_at else '' }}
+              </small>
+
+              <div class="dropdown">
+                <button class="btn btn-sm btn-light border-0 p-1" type="button" data-bs-toggle="dropdown">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                  <li>
+                    <h6 class="dropdown-header">Move to...</h6>
+                  </li>
+                  {% for s in statuses %}
+                  {% if s.id != status.id %}
+                  <li>
+                    <form method="POST" action="{{ url_for('update_task_status', task_id=t.id) }}">
+                      <input type="hidden" name="status_id" value="{{ s.id }}">
+                      <button class="dropdown-item small">{{ s.label }}</button>
+                    </form>
+                  </li>
+                  {% endif %}
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        <!-- Empty state if no tasks -->
+        {% set has_tasks = false %}
+        {% for t in tasks if t.status_id == status.id %}{% set has_tasks = true %}{% endfor %}
+        {% if not has_tasks %}
+        <div class="text-center py-4 text-muted opacity-50">
+          <i class="bi bi-clipboard display-6"></i>
+          <p class="small mt-2">No tasks</p>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+
+<!-- ========================
+     NEW TASK MODAL
+========================= -->
+<div class="modal fade" id="newTaskModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Create New Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form method="POST" action="{{ url_for('add_task') }}">
+        <div class="modal-body">
+
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input class="form-control" name="title" placeholder="What needs to be done?" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3" placeholder="Add details..."></textarea>
+          </div>
+
+          {% if current_user.is_admin() %}
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Assign to User</label>
+              <select class="form-select" name="assigned_user_id">
+                <option value="">-- Unassigned --</option>
+                {% for u in users %}
+                <option value="{{ u.id }}">{{ u.username }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Assign to Group</label>
+              <select class="form-select" name="assigned_group_id">
+                <option value="">-- Unassigned --</option>
+                {% for g in groups %}
+                <option value="{{ g.id }}">{{ g.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Status</label>
+              <select class="form-select" name="status_id">
+                <option value="">-- Default --</option>
+                {% for s in statuses %}
+                <option value="{{ s.id }}">{{ s.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Due Date (Optional)</label>
+              <input class="form-control" name="due_date" type="date">
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Task</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+  <div id="taskToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <i class="bi bi-check-circle-fill text-success me-2"></i>
+      <strong class="me-auto">Task Updated</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastMessage"></div>
+  </div>
+</div>
+
+<!-- Live Kanban Updates with SocketIO -->
+<script>
+  // Toast notification function
+  function showToast(message, type = 'success') {
+    const toastEl = document.getElementById('taskToast');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastHeader = toastEl.querySelector('.toast-header');
+    
+    // Update message
+    toastMessage.textContent = message;
+    
+    // Update icon based on type
+    const icon = toastHeader.querySelector('i');
+    if (type === 'success') {
+      icon.className = 'bi bi-check-circle-fill text-success me-2';
+    } else if (type === 'error') {
+      icon.className = 'bi bi-x-circle-fill text-danger me-2';
+    } else {
+      icon.className = 'bi bi-info-circle-fill text-info me-2';
+    }
+    
+    // Show toast
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    toast.show();
+  }
+
+  // Initialize SocketIO connection for live updates
+  const kanbanSocket = io();
+  
+  // Listen for task_moved events
+  kanbanSocket.on('task_moved', function(data) {
+    const taskCard = document.querySelector(`[data-task-id="${data.task_id}"]`);
+    if (taskCard) {
+      const targetColumn = document.querySelector(`[data-status-id="${data.new_status_id}"]`);
+      if (targetColumn) {
+        // Update the card's current status
+        taskCard.dataset.currentStatus = data.new_status_id;
+        
+        // Move the card to the new column
+        targetColumn.appendChild(taskCard);
+        
+        // Update task count badges
+        updateTaskCounts();
+        
+        // Show toast notification
+        showToast(`Task "${data.task_title}" moved to ${data.status_label}!`, 'success');
+      }
+    }
+  });
+
+  // Function to update task count badges
+  function updateTaskCounts() {
+    const dropZones = document.querySelectorAll('.kanban-drop-zone');
+    dropZones.forEach(zone => {
+      const statusId = zone.dataset.statusId;
+      const taskCount = zone.querySelectorAll('.task-card').length;
+      const badge = zone.closest('.card').querySelector('.badge');
+      if (badge) {
+        badge.textContent = taskCount;
+      }
+    });
+  }
+</script>
+
+<!-- Drag and Drop JavaScript -->
+<script>
+  (function () {
+    let draggedTask = null;
+    let draggedTaskId = null;
+    let sourceStatusId = null;
+
+    // Get all draggable task cards
+    const tasks = document.querySelectorAll('.draggable-task');
+    const dropZones = document.querySelectorAll('.kanban-drop-zone');
+
+    // Add drag event listeners to tasks
+    tasks.forEach(task => {
+      task.addEventListener('dragstart', function (e) {
+        draggedTask = this;
+        draggedTaskId = this.dataset.taskId;
+        sourceStatusId = this.dataset.currentStatus;
+
+        this.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+      });
+
+      task.addEventListener('dragend', function (e) {
+        this.style.opacity = '1';
+
+        // Remove all drag-over classes
+        dropZones.forEach(zone => {
+          zone.classList.remove('drag-over');
+        });
+      });
+      
+      // Handle click to navigate
+      task.addEventListener('click', function (e) {
+        // Only navigate if not dragging (check if opacity is normal)
+        if (this.style.opacity !== '0.4' && this.dataset.taskUrl) {
+          window.location.href = this.dataset.taskUrl;
+        }
+      });
+    });
+
+    // Add drop zone event listeners
+    dropZones.forEach(zone => {
+      zone.addEventListener('dragover', function (e) {
+        if (e.preventDefault) {
+          e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-over');
+        return false;
+      });
+
+      zone.addEventListener('dragenter', function (e) {
+        this.classList.add('drag-over');
+      });
+
+      zone.addEventListener('dragleave', function (e) {
+        this.classList.remove('drag-over');
+      });
+
+      zone.addEventListener('drop', function (e) {
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        }
+
+        const targetStatusId = this.dataset.statusId;
+
+        // Only update if dropped in a different column
+        if (sourceStatusId !== targetStatusId && draggedTaskId) {
+          // Get status label for toast
+          const statusLabel = this.closest('.card').querySelector('h6').textContent.trim();
+          
+          // Move card immediately for better UX (optimistic update)
+          if (draggedTask && draggedTask.parentNode !== this) {
+            this.appendChild(draggedTask);
+            draggedTask.dataset.currentStatus = targetStatusId;
+            updateTaskCounts();
+          }
+          
+          // Send AJAX request to update task status
+          fetch(`/tasks/${draggedTaskId}/update_status`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'include',
+            body: `status_id=${targetStatusId}`
+          })
+            .then(response => {
+              if (response.ok) {
+                return response.json();
+              } else if (response.status === 401) {
+                // Authentication error - redirect to login
+                window.location.href = '/login';
+                throw new Error('Session expired. Please log in again.');
+              } else {
+                return response.json().then(data => {
+                  throw new Error(data.error || 'Failed to update task status');
+                }).catch(() => {
+                  throw new Error('Failed to update task status');
+                });
+              }
+            })
+            .then(data => {
+              // Success - show toast
+              showToast(`Task moved to ${statusLabel}!`, 'success');
+            })
+            .catch(error => {
+              console.error('Error updating task status:', error);
+              // Revert on error (unless it's an auth error which redirects)
+              if (error.message && !error.message.includes('Session expired')) {
+                if (originalColumn && draggedTask) {
+                  originalColumn.appendChild(draggedTask);
+                  draggedTask.dataset.currentStatus = sourceStatusId;
+                  updateTaskCounts();
+                }
+                showToast(error.message || 'Failed to update task status', 'error');
+              }
+            });
+        }
+
+        this.classList.remove('drag-over');
+        return false;
+      });
+    });
+  })();
+</script>
+
+<style>
+  .draggable-task {
+    cursor: move;
+    transition: opacity 0.2s ease;
+  }
+
+  .draggable-task:hover {
+    cursor: grab;
+  }
+
+  .draggable-task:active {
+    cursor: grabbing;
+  }
+
+  .kanban-drop-zone.drag-over {
+    background-color: rgba(13, 110, 253, 0.1);
+    border: 2px dashed #0d6efd;
+    border-radius: 8px;
+  }
+
+  body.dark-mode .kanban-drop-zone.drag-over {
+    background-color: rgba(30, 126, 255, 0.15);
+    border-color: #1e7eff;
+  }
+</style>
+
+{% endblock %}

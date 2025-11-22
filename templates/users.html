@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h3 mb-0">User Accounts</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="bi bi-person-plus-fill me-2"></i> Create User
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-4">ID</th>
+                  <th>Username</th>
+                  <th>Employee</th>
+                  <th>Status</th>
+                  <th>Groups</th>
+                  <th class="text-end pe-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in users %}
+                <tr>
+                  <td class="ps-4 text-muted small">#{{ u.id }}</td>
+                  <td class="fw-medium">{{ u.username }}</td>
+                  <td>
+                    {% if u.employee %}
+                      {{ u.employee.full_name() }}
+                    {% else %}
+                      <span class="text-muted fst-italic">No employee linked</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if u.is_active %}
+                      <span class="badge rounded-pill bg-success">Active</span>
+                    {% else %}
+                      <span class="badge rounded-pill bg-secondary">Inactive</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="d-flex flex-wrap gap-1">
+                      {% if u.groups %}
+                        {% for g in u.groups %}
+                          <span class="badge rounded-pill {% if g.is_admin_group %}bg-danger{% else %}bg-primary{% endif %}" 
+                                title="{{ g.description }}">
+                            {{ g.name }}
+                          </span>
+                        {% endfor %}
+                      {% else %}
+                        <span class="text-muted small">No groups</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-warning me-1" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#resetPasswordModal{{ u.id }}"
+                            title="Reset Password">
+                        <i class="bi bi-key"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary me-1" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#editUserModal{{ u.id }}"
+                            title="Edit User">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    {% if not u.is_admin() %}
+                    <button class="btn btn-sm btn-outline-danger" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#deleteUserModal{{ u.id }}"
+                            title="Delete User">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">No users found.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create New User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="{{ url_for('add_user') }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input class="form-control" name="username" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input class="form-control" name="password" type="password" required>
+            <div class="form-text">Default: password123</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Link to Employee (Optional)</label>
+            <select class="form-select" name="employee_id">
+              <option value="">-- No Employee --</option>
+              {% for e in employees %}
+                {% if not e.user %}
+                <option value="{{ e.id }}">{{ e.full_name() }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="is_active" value="1" id="activeCheck" checked>
+              <label class="form-check-label" for="activeCheck">Active</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modals -->
+{% for u in users %}
+<div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="{{ url_for('edit_user', user_id=u.id) }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input class="form-control" name="username" value="{{ u.username }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Link to Employee</label>
+            <select class="form-select" name="employee_id">
+              <option value="">-- No Employee --</option>
+              {% for e in employees %}
+                {% if not e.user or e.user.id == u.id %}
+                <option value="{{ e.id }}" {% if u.employee and u.employee.id == e.id %}selected{% endif %}>
+                  {{ e.full_name() }}
+                </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="is_active" value="1" 
+                     id="activeCheck{{ u.id }}" {% if u.is_active %}checked{% endif %}>
+              <label class="form-check-label" for="activeCheck{{ u.id }}">Active</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Reset Password Modals -->
+{% for u in users %}
+<div class="modal fade" id="resetPasswordModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Reset Password</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="{{ url_for('reset_password', user_id=u.id) }}">
+        <div class="modal-body">
+          <p>Reset password for <strong>{{ u.username }}</strong>?</p>
+          <div class="mb-3">
+            <label class="form-label">New Password</label>
+            <input class="form-control" name="new_password" type="password" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Reset Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Delete User Modals -->
+{% for u in users %}
+{% if not u.is_admin() %}
+<div class="modal fade" id="deleteUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Delete User</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Are you sure you want to delete user <strong>{{ u.username }}</strong>?</p>
+        <p class="text-muted small mt-2">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}" class="d-inline">
+          <button type="submit" class="btn btn-danger">Delete User</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% endblock %}
+
